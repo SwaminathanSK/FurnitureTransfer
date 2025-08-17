@@ -143,7 +143,7 @@ config: Dict[str, Any] = {
                 "asset_file": "furniture/urdf/square_table/square_table_top.urdf",
                 "ids": [4, 5, 6, 7],
                 "reset_pos": [
-                    np.array([0.15 - 0.08125, 0.31 - 0.08125, -0.015625]),  # Table edge at corner boundaries (center offset by half_width)
+                    np.array([0.15 - 0.07, 0.31 - 0.0265, -0.015625]),  # Table edge at corner boundaries (center offset by half_width)
                     np.array([0.0, 0.24, -0.015625]),
                     np.array([0.08, 0.27, -0.015], dtype=np.float32),
                     np.array([0.08, 0.27, -0.015625], dtype=np.float32),

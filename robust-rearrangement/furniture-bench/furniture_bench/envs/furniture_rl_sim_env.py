@@ -23,6 +23,7 @@ from pathlib import Path
 
 from furniture_bench.furniture.furniture import Furniture
 from furniture_bench.utils.recorder import VideoRecorder
+from furniture_bench.envs.dense_reward_one_leg import OneLegDenseReward
 import torch
 import gym
 import numpy as np
@@ -254,6 +255,24 @@ class FurnitureSimEnv(gym.Env):
         )
 
         print(f"Sim steps: {self.sim_steps}")
+        
+        # Initialize dense reward system for one-leg task
+        self._init_dense_reward_system()
+
+    def _init_dense_reward_system(self):
+        """Initialize dense reward system for one-leg task."""
+        # furniture_name is already set in parent class __init__
+        
+        if self.furniture_name == 'one_leg':
+            self.dense_reward_systems = []
+            self.reward_info = {}
+            
+            for env_idx in range(self.num_envs):
+                dense_reward = OneLegDenseReward(device=self.device)
+                self.dense_reward_systems.append(dense_reward)
+                self.reward_info[env_idx] = {}
+            
+            print(f"Initialized dense reward system for {self.num_envs} one-leg environments")
 
     def _create_ground_plane(self):
         """Creates ground plane."""
@@ -907,6 +926,14 @@ class FurnitureSimEnv(gym.Env):
         )
 
     def simulate_step(self, action):
+        
+        # Convert numpy array to torch tensor if needed
+        if isinstance(action, np.ndarray):
+            action = torch.from_numpy(action).float().to(self.device)
+        
+        # Ensure action has correct batch dimension
+        if action.dim() == 1:
+            action = action.unsqueeze(0)
 
         # Clip the action to be within the action space.
         action = torch.clamp(action, self.act_low, self.act_high)
@@ -1032,17 +1059,31 @@ class FurnitureSimEnv(gym.Env):
             self.isaac_gym.clear_lines(self.viewer)
 
     def _reward(self):
-        """Reward is 1 if two parts are assembled."""
+        """Reward function with dense rewards for one-leg task, sparse for others."""
         rewards = torch.zeros(
             (self.num_envs, 1), dtype=torch.float32, device=self.device
         )
-
-        # return rewards
 
         if self.manual_label:
             # Return zeros since the reward is manually labeled by data_collector.py.
             return rewards
 
+        # Check if this is one-leg task for dense rewards
+        is_one_leg_task = hasattr(self, 'furniture_name') and self.furniture_name == 'one_leg'
+        
+        if is_one_leg_task and hasattr(self, 'dense_reward_system'):
+            # Use dense reward system for one-leg task
+            return self._dense_reward_one_leg()
+        else:
+            # Use original sparse reward for other tasks
+            return self._sparse_reward()
+    
+    def _sparse_reward(self):
+        """Original sparse reward: 1 if parts are assembled."""
+        rewards = torch.zeros(
+            (self.num_envs, 1), dtype=torch.float32, device=self.device
+        )
+        
         # Don't have to convert to AprilTag coordinate since the reward is computed with relative poses.
         parts_poses, founds = self.get_parts_poses(sim_coord=True)
         for env_idx in range(self.num_envs):
@@ -1051,6 +1092,55 @@ class FurnitureSimEnv(gym.Env):
             rewards[env_idx] = self.furnitures[env_idx].compute_assemble(
                 env_parts_poses, env_founds
             )
+
+        if self.np_step_out:
+            return rewards.cpu().numpy()
+
+        return rewards
+    
+    def _dense_reward_one_leg(self):
+        """Dense reward system for one-leg furniture assembly."""
+        rewards = torch.zeros(
+            (self.num_envs, 1), dtype=torch.float32, device=self.device
+        )
+        
+        # Get state information
+        parts_poses, founds = self.get_parts_poses(sim_coord=True)
+        
+        for env_idx in range(self.num_envs):
+            # Get gripper position and orientation
+            gripper_pos = self.rb_states[self.ee_indices[env_idx], :3]
+            gripper_quat = self.rb_states[self.ee_indices[env_idx], 3:7]
+            
+            # Get gripper state (finger positions)
+            gripper_state = self.dof_states[self.gripper_indices[env_idx], 0]
+            
+            # Get parts poses for this environment
+            env_parts_poses = parts_poses[env_idx]
+            env_founds = founds[env_idx].cpu().numpy()
+            
+            # Check if assembled using original method
+            assembled = self.furnitures[env_idx].compute_assemble(
+                env_parts_poses.cpu().numpy(), env_founds
+            ) > 0
+            
+            # Compute dense reward
+            if hasattr(self, 'dense_reward_systems') and env_idx < len(self.dense_reward_systems):
+                dense_reward, reward_info = self.dense_reward_systems[env_idx].compute_dense_reward(
+                    gripper_pos=gripper_pos,
+                    gripper_quat=gripper_quat,
+                    parts_poses=env_parts_poses,
+                    gripper_state=gripper_state,
+                    assembled=assembled
+                )
+                rewards[env_idx] = dense_reward
+                
+                # Store reward info for debugging (optional)
+                if hasattr(self, 'reward_info'):
+                    self.reward_info[env_idx] = reward_info
+            else:
+                # Fallback to sparse reward if dense system not available
+                rewards[env_idx] = 1.0 if assembled else 0.0
 
         if self.np_step_out:
             return rewards.cpu().numpy()
@@ -1950,6 +2040,12 @@ class FurnitureRLSimEnv(FurnitureSimEnv):
             )
 
         self.refresh()
+        
+        # Reset dense reward systems for the specified environments
+        if hasattr(self, 'dense_reward_systems') and self.dense_reward_systems:
+            for env_idx in env_idxs:
+                if env_idx < len(self.dense_reward_systems):
+                    self.dense_reward_systems[env_idx].reset()
 
         obs = self.get_observation()
 
@@ -1975,7 +2071,20 @@ class FurnitureRLSimEnv(FurnitureSimEnv):
         )
 
     def _reward(self):
-        """Reward is 1 if two parts are newly assembled."""
+        """Reward function - always returns sparse rewards, but computes dense for debugging."""
+        # Always use sparse rewards for evaluation consistency
+        sparse_rewards = self._sparse_reward()
+        
+        # If one-leg task, also compute dense rewards for debugging/visualization
+        is_one_leg_task = hasattr(self, 'furniture_name') and self.furniture_name == 'one_leg'
+        if is_one_leg_task and hasattr(self, 'dense_reward_systems') and self.dense_reward_systems:
+            # Compute dense rewards for debugging but don't return them
+            self._compute_dense_rewards_for_debug()
+        
+        return sparse_rewards
+    
+    def _sparse_reward(self):
+        """Original sparse reward: 1 if parts are assembled."""
         rewards = torch.zeros(
             (self.num_envs, 1), dtype=torch.float32, device=self.device
         )
@@ -2028,15 +2137,49 @@ class FurnitureRLSimEnv(FurnitureSimEnv):
         # Compute the rewards based on the newly assembled parts
         rewards = newly_assembled_mask.any(dim=1).float().unsqueeze(-1)
 
-        # print(f"Already assembled: {self.already_assembled.sum(dim=1)}")
-        # print(
-        #     f"Done envs: {torch.where(self.already_assembled.sum(dim=1) == len(self.pairs_to_assemble))[0]}"
-        # )
-
         if self.manual_done and (rewards == 1).any():
             return print("Part assembled!")
 
         return rewards
+    
+    def _compute_dense_rewards_for_debug(self):
+        """Compute dense rewards for debugging/visualization (doesn't affect actual rewards)."""
+        # Get state information
+        parts_poses = self.get_parts_poses(sim_coord=True)
+        
+        for env_idx in range(self.num_envs):
+            # Get gripper position and orientation (use ee_idxs, not ee_indices)
+            gripper_pos = self.rb_states[self.ee_idxs[env_idx], :3]
+            gripper_quat = self.rb_states[self.ee_idxs[env_idx], 3:7]
+            
+            # Get gripper state (use gripper_width method)
+            gripper_state = self.gripper_width()[env_idx]
+            
+            # Get parts poses for this environment
+            env_parts_poses = parts_poses[env_idx]
+            
+            # For dense rewards, we check if assembled using the already_assembled state
+            assembled = False
+            if hasattr(self, 'already_assembled') and self.already_assembled is not None:
+                assembled = self.already_assembled[env_idx].any().item()
+            
+            # Compute dense reward for debugging only
+            if hasattr(self, 'dense_reward_systems') and env_idx < len(self.dense_reward_systems):
+                dense_reward, reward_info = self.dense_reward_systems[env_idx].compute_dense_reward(
+                    gripper_pos=gripper_pos,
+                    gripper_quat=gripper_quat,
+                    parts_poses=env_parts_poses,
+                    gripper_state=gripper_state,
+                    assembled=assembled
+                )
+                
+                # Store reward info for debugging/visualization
+                if not hasattr(self, 'dense_reward_info'):
+                    self.dense_reward_info = {}
+                self.dense_reward_info[env_idx] = {
+                    'total_dense_reward': dense_reward,
+                    'breakdown': reward_info
+                }
 
     def _done(self):
         if self.manual_done:

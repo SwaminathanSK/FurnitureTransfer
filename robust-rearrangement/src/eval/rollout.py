@@ -188,6 +188,50 @@ def rollout(
         # action_pred = actor.normalizer(action_pred, "action", forward=False)
 
         obs, reward, done, _ = env.step(action_pred, sample_perturbations=False)
+        
+        # Print dense reward breakdown if available (for one_leg task)
+        if hasattr(env, 'dense_reward_systems') and env.dense_reward_systems:
+            reward_scalar = reward.item() if hasattr(reward, 'item') else float(reward)
+            # Print every 10 steps or significant rewards (or when there's dense reward activity)
+            show_step = step_idx % 10 == 0 or abs(reward_scalar) > 0.01 or step_idx < 20
+            
+            # Check if we have dense reward info for this step
+            has_dense_info = (hasattr(env, 'dense_reward_info') and 
+                             env.dense_reward_info and 
+                             0 in env.dense_reward_info)
+            
+            if show_step or has_dense_info:
+                print(f"\nStep {step_idx:3d}: Sparse Reward = {reward_scalar:7.3f}")
+                
+                # Print dense reward breakdown if available
+                if has_dense_info:
+                    dense_info = env.dense_reward_info[0]
+                    dense_reward = dense_info.get('total_dense_reward', 0)
+                    reward_breakdown = dense_info.get('breakdown', {})
+                    
+                    print(f"             Dense Reward  = {dense_reward:7.3f}")
+                    
+                    if reward_breakdown:
+                        print("    Dense Reward Breakdown:")
+                        for component, value in reward_breakdown.items():
+                            if abs(value) > 1e-6:  # Only show non-zero components
+                                weighted_value = value * env.dense_reward_systems[0].weights.get(component, 1.0)
+                                print(f"      {component:12s}: raw={value:6.3f}, weighted={weighted_value:6.3f}")
+                
+                # Print current stage and debug info
+                if (hasattr(env, 'dense_reward_systems') and 
+                    env.dense_reward_systems and
+                    hasattr(env.dense_reward_systems[0], 'current_stage')):
+                    dense_sys = env.dense_reward_systems[0]
+                    print(f"    Current Stage: {dense_sys.current_stage}")
+                    completed = [k for k, v in dense_sys.stage_completion.items() if v]
+                    if completed:
+                        print(f"    Completed Stages: {completed}")
+                    
+                    # Debug gripper state if we're seeing inconsistent behavior
+                    if hasattr(env, 'gripper_width'):
+                        gripper_val = env.gripper_width()[0].item() if hasattr(env.gripper_width()[0], 'item') else env.gripper_width()[0]
+                        print(f"    Debug: Gripper={gripper_val:.4f}, Grasping={gripper_val < 0.03}")
 
         video_obs = deepcopy(obs)
 
