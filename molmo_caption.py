@@ -92,30 +92,46 @@ class MolmoLocalCaptioner:
                 text=prompt
             )
             
-            # Move inputs to device
+            # Move inputs to device and ensure proper batch dimensions
             inputs = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v 
                      for k, v in inputs.items()}
             
-            # Generate caption
+            # Ensure input_ids has batch dimension
+            if 'input_ids' in inputs and inputs['input_ids'].dim() == 1:
+                inputs['input_ids'] = inputs['input_ids'].unsqueeze(0)
+            
+            # Generate caption using model's forward pass and generation
             with torch.no_grad():
+                # Use the model's generate_from_batch method as originally intended
+                from transformers import GenerationConfig
+                gen_config = GenerationConfig(
+                    max_new_tokens=200,
+                    temperature=0.7,
+                    do_sample=True,
+                    use_cache=True
+                )
                 output = self.model.generate_from_batch(
                     inputs,
-                    GenerationConfig(
-                        max_new_tokens=200,
-                        stop_strings=["<|endoftext|>"],
-                        temperature=0.7,
-                        do_sample=True
-                    ),
+                    generation_config=gen_config,
                     tokenizer=self.processor.tokenizer
                 )
             
-            # Decode the response
-            generated_tokens = output[0, inputs['input_ids'].size(1):]
+            # Decode the response  
+            if hasattr(output, 'sequences'):
+                # Handle batched output
+                generated_tokens = output.sequences[0, inputs['input_ids'].size(1):]
+            else:
+                # Handle tensor output
+                generated_tokens = output[0, inputs['input_ids'].size(1):]
             response = self.processor.tokenizer.decode(generated_tokens, skip_special_tokens=True)
             
             return response.strip()
             
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"Full error for {image_path}:")
+            print(error_details)
             return f"Error captioning {image_path}: {str(e)}"
 
 

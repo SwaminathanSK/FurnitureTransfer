@@ -1,0 +1,30 @@
+[
+  {
+    "image_path": "TaskImages/1.png",
+    "image_name": "1.png",
+    "caption": "Error captioning TaskImages/1.png: 'NoneType' object has no attribute 'size'",
+    "timestamp": 1756509532.9858599,
+    "model": "allenai/Molmo-7B-D-0924"
+  },
+  {
+    "image_path": "TaskImages/4.png",
+    "image_name": "4.png",
+    "caption": "Error captioning TaskImages/4.png: 'NoneType' object has no attribute 'size'",
+    "timestamp": 1756509533.4981627,
+    "model": "allenai/Molmo-7B-D-0924"
+  },
+  {
+    "image_path": "TaskImages/3.png",
+    "image_name": "3.png",
+    "caption": "Error captioning TaskImages/3.png: 'NoneType' object has no attribute 'size'",
+    "timestamp": 1756509534.0112343,
+    "model": "allenai/Molmo-7B-D-0924"
+  },
+  {
+    "image_path": "TaskImages/2.png",
+    "image_name": "2.png",
+    "caption": "Error captioning TaskImages/2.png: 'NoneType' object has no attribute 'size'",
+    "timestamp": 1756509534.5296116,
+    "model": "allenai/Molmo-7B-D-0924"
+  }
+]
