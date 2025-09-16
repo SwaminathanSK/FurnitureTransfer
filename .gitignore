@@ -1,3 +1,7 @@
 balanced_dataset/
 *.pyc
 *.pt
+wandb/
+*results/
+*cvae_results*/
+__pycache__/

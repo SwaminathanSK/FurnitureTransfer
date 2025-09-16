@@ -53,7 +53,7 @@ def generate_random_trajectory(
         states.append(next_state)
         current_state = next_state
     
-    return np.array(states[:-1]), np.array(actions)  # Remove last state
+    return np.array(states[:-1]), np.array(actions)  # Return matching state-action pairs
 
 
 def corrupt_expert_actions(
@@ -158,8 +158,11 @@ def create_balanced_dataset(
             start_state, traj_length, state_bounds, action_bounds
         )
         
+        # Ensure same length for state-action pairs
+        assert len(traj_states) == len(traj_actions), f"Length mismatch: {len(traj_states)} states vs {len(traj_actions)} actions"
+        
         # Low progress for random actions (0 to 0.2)
-        traj_progress = np.linspace(0, 0.2, len(traj_actions), endpoint=False)
+        traj_progress = np.linspace(0, 0.2, len(traj_states), endpoint=False)
         
         random_states.extend(traj_states)
         random_actions.extend(traj_actions)
