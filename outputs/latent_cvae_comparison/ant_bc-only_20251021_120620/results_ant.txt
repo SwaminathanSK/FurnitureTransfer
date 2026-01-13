@@ -1,0 +1,19 @@
+============================================================
+HYPOTHESIS TEST RESULTS
+============================================================
+Timestamp: 20251021_120620
+Environment: ant-medium-expert
+Mode: bc-only
+Eval Episodes: 100
+CVAE Latent Dim: 9 (action_dim=8 + 1)
+
+COLLAPSE ANALYSIS:
+  Effective dimensionality: 7.99/9
+  Collapsed dimensions: 0/9
+  Extra dims collapsed: 0/1
+  Avg correlation: 0.091
+
+PERFORMANCE:
+  Standard BC: 4841.45 ± 630.09
+  Latent BC:   4674.53 ± 896.12
+  Improvement: -3.45%

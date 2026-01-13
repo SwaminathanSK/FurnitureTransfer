@@ -398,9 +398,7 @@ class OneLegDenseReward:
         initial_height = self.prev_distances['initial_leg_z']
         height_diff = current_height - initial_height
         
-        # Debug info (can be removed later)
-        print(f"Debug: grasping={grasping}, dist_to_target={dist_to_target:.3f}, assembled={assembled}")
-        print(f"Debug: align_dist={self.thresholds['align_dist']}, screw_dist={self.thresholds['screw_dist']}")
+        # Debug info removed
         
         # Stage progression logic - allow forward progression, prevent regression
         if assembled:

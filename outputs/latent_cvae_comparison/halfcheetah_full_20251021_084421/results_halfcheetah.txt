@@ -1,0 +1,19 @@
+============================================================
+HYPOTHESIS TEST RESULTS
+============================================================
+Timestamp: 20251021_084421
+Environment: halfcheetah-medium-expert
+Mode: full
+Eval Episodes: 100
+CVAE Latent Dim: 7 (action_dim=6 + 1)
+
+COLLAPSE ANALYSIS:
+  Effective dimensionality: 5.98/7
+  Collapsed dimensions: 0/7
+  Extra dims collapsed: 0/1
+  Avg correlation: 0.092
+
+PERFORMANCE:
+  Standard BC: 5095.77 ± 1117.54
+  Latent BC:   5342.85 ± 1279.28
+  Improvement: +4.85%

@@ -1,0 +1,19 @@
+============================================================
+HYPOTHESIS TEST RESULTS
+============================================================
+Timestamp: 20251021_151742
+Environment: hammer-human
+Mode: full
+Eval Episodes: 10
+CVAE Latent Dim: 27 (action_dim=26 + 1)
+
+COLLAPSE ANALYSIS:
+  Effective dimensionality: 20.58/27
+  Collapsed dimensions: 0/27
+  Extra dims collapsed: 0/1
+  Avg correlation: 0.142
+
+PERFORMANCE:
+  Standard BC: -8.14 ± 229.97
+  Latent BC:   -70.59 ± 60.16
+  Improvement: -767.56%

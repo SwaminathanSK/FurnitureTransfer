@@ -1,0 +1,19 @@
+============================================================
+HYPOTHESIS TEST RESULTS
+============================================================
+Timestamp: 20251021_151536
+Environment: pen-human
+Mode: full
+Eval Episodes: 10
+CVAE Latent Dim: 25 (action_dim=24 + 1)
+
+COLLAPSE ANALYSIS:
+  Effective dimensionality: 21.99/25
+  Collapsed dimensions: 0/25
+  Extra dims collapsed: 0/1
+  Avg correlation: 0.230
+
+PERFORMANCE:
+  Standard BC: 3088.99 ± 1663.18
+  Latent BC:   2240.66 ± 1779.89
+  Improvement: -27.46%

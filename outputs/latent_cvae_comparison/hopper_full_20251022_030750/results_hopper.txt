@@ -1,0 +1,19 @@
+============================================================
+HYPOTHESIS TEST RESULTS
+============================================================
+Timestamp: 20251022_030750
+Environment: hopper-medium-replay
+Mode: full
+Eval Episodes: 100
+CVAE Latent Dim: 4 (action_dim=3 + 1)
+
+COLLAPSE ANALYSIS:
+  Effective dimensionality: 3.00/4
+  Collapsed dimensions: 0/4
+  Extra dims collapsed: 0/1
+  Avg correlation: 0.189
+
+PERFORMANCE:
+  Standard BC: 441.96 ± 46.65
+  Latent BC:   740.60 ± 782.02
+  Improvement: +67.57%

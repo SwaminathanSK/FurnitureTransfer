@@ -1,0 +1,16 @@
+{
+  "return_mean": 426.3499152705051,
+  "return_std": 213.88015379590706,
+  "d4rl_score": 9.251826323660554,
+  "config": {
+    "env": "walker2d",
+    "dataset": "medium-replay",
+    "latent_extra": 1,
+    "pred_horizon": 4,
+    "cvae_epochs": 50,
+    "diffusion_epochs": 100,
+    "num_diffusion_iters": 100,
+    "num_inference_steps": 10,
+    "seed": 0
+  }
+}

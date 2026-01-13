@@ -1,0 +1,19 @@
+============================================================
+HYPOTHESIS TEST RESULTS
+============================================================
+Timestamp: 20251022_055929
+Environment: walker2d-medium-replay
+Mode: full
+Eval Episodes: 100
+CVAE Latent Dim: 6 (action_dim=6 + 0)
+
+COLLAPSE ANALYSIS:
+  Effective dimensionality: 6.00/6
+  Collapsed dimensions: 0/6
+  Extra dims collapsed: 0/0
+  Avg correlation: 0.045
+
+PERFORMANCE:
+  Standard BC: 414.92 ± 143.64
+  Latent BC:   778.58 ± 1173.95
+  Improvement: +87.65%

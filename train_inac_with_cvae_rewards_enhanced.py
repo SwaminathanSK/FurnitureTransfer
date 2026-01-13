@@ -645,21 +645,20 @@ def try_furnituresim_evaluation(policy, config, n_episodes, video_save_dir):
 
                 return action
 
-        # Create FurnitureSim environment - keep concat_robot_state=False so TensorDict works
-        # The filtering will happen in rollout.py before calling actor.action()
+        # Create FurnitureSim environment with image observations for video recording
         env = get_rl_env(
             gpu_id=0,
             task="one_leg",
             num_envs=1,
             randomness="low",
-            observation_space="state",
+            observation_space="state_vision",  # Enable vision for video recording
             max_env_steps=200,
-            resize_img=False,
+            resize_img=True,  # Enable image resizing for videos
             act_rot_repr="rot_6d",
             action_type="pos",
             april_tags=False,
             verbose=False,
-            headless=True
+            headless=False  # Set to False to enable rendering for videos
             # concat_robot_state=False by default - rollout.py will call filter_and_concat_robot_state
         )
         actor = FurnitureSimActor(policy.agent.ac.pi, env, device=policy.device)
@@ -670,12 +669,12 @@ def try_furnituresim_evaluation(policy, config, n_episodes, video_save_dir):
             n_rollouts=n_episodes,
             rollout_max_steps=200,
             epoch_idx=0,
-            rollout_save_dir=None,  # Disable rollout saving to avoid TensorDict error
-            save_rollouts_to_wandb=False,  # Disable wandb saving to avoid TensorDict error
-            save_failures=False,
+            rollout_save_dir=video_save_dir,  # Enable rollout saving for videos
+            save_rollouts_to_wandb=True,  # Enable wandb saving for videos
+            save_failures=True,
             n_parts_assemble=1,
             compress_pickles=False,
-            resize_video=False  # Disable video processing to avoid TensorDict error
+            resize_video=True  # Enable video processing
         )
 
         eval_stats = {
@@ -688,7 +687,14 @@ def try_furnituresim_evaluation(policy, config, n_episodes, video_save_dir):
         }
 
         print(f"FurnitureSim Success Rate: {eval_stats['success_rate']:.2%}")
-        return eval_stats, []
+
+        # Try to collect videos from the rollout directory
+        videos = []
+        if video_save_dir and video_save_dir.exists():
+            video_files = list(video_save_dir.glob("*.mp4"))
+            print(f"Found {len(video_files)} video files in {video_save_dir}")
+
+        return eval_stats, videos
 
     except Exception as e:
         print(f"FurnitureSim evaluation failed: {e}")
@@ -727,7 +733,7 @@ class INACFurnitureConfig:
 
         # Evaluation settings
         self.eval_every = 10000
-        self.eval_episodes = 10
+        self.eval_episodes = 3
         self.record_videos = True
 
         # Wandb settings
@@ -905,14 +911,14 @@ def train_inac_with_cvae_rewards_enhanced(
             eval_video_dir.mkdir(exist_ok=True)
 
             # Try FurnitureSim evaluation first, fallback to simple env
-            furnituresim_stats, _ = try_furnituresim_evaluation(
+            furnituresim_stats, furnituresim_videos = try_furnituresim_evaluation(
                 policy, config, config.eval_episodes, eval_video_dir
             )
 
             if furnituresim_stats is not None:
                 eval_stats = furnituresim_stats
                 eval_type = "furnituresim"
-                videos = []  # FurnitureSim handles its own videos
+                videos = furnituresim_videos
             else:
                 print("Using simple environment for evaluation...")
                 eval_stats, videos = evaluate_policy(
@@ -934,21 +940,28 @@ def train_inac_with_cvae_rewards_enhanced(
 
             wandb.log(eval_log, step=step)
 
-            # Upload videos to wandb (only for simple env)
-            if eval_type == "simple" and config.record_videos and len(videos) > 0:
-                # Create video montage from first few episodes
-                n_video_upload = min(3, len(videos))
-
-                for i in range(n_video_upload):
-                    video_frames = videos[i]
-
-                    # Convert list to numpy array for wandb.Video
-                    video_array = np.array(video_frames)  # Shape: (num_frames, height, width, channels)
-
-                    # Create wandb video from numpy array (similar to robust-rearrangement)
-                    wandb.log({
-                        f'eval/video_episode_{i}': wandb.Video(video_array, fps=10, format="mp4")
-                    }, step=step)
+            # Upload videos to wandb
+            if config.record_videos and len(videos) > 0:
+                if eval_type == "simple":
+                    # For simple env, videos are numpy arrays
+                    n_video_upload = min(3, len(videos))
+                    for i in range(n_video_upload):
+                        video_frames = videos[i]
+                        # Convert list to numpy array for wandb.Video
+                        video_array = np.array(video_frames)  # Shape: (num_frames, height, width, channels)
+                        # Create wandb video from numpy array
+                        wandb.log({
+                            f'eval/video_episode_{i}': wandb.Video(video_array, fps=10, format="mp4")
+                        }, step=step)
+                elif eval_type == "furnituresim":
+                    # For FurnitureSim, videos are file paths
+                    n_video_upload = min(3, len(videos))
+                    for i in range(n_video_upload):
+                        video_file = videos[i]
+                        if video_file.exists():
+                            wandb.log({
+                                f'eval/furnituresim_video_{i}': wandb.Video(str(video_file))
+                            }, step=step)
 
             print(f"Evaluation completed. Success rate: {eval_stats['success_rate']:.2%}")
 
@@ -958,8 +971,8 @@ def train_inac_with_cvae_rewards_enhanced(
     print("\nRunning final evaluation...")
 
     # Try FurnitureSim first
-    final_eval_stats, _ = try_furnituresim_evaluation(
-        policy, config, 20, video_dir / "final_eval"
+    final_eval_stats, final_videos = try_furnituresim_evaluation(
+        policy, config, 3, video_dir / "final_eval"
     )
 
     if final_eval_stats is not None:
@@ -969,7 +982,7 @@ def train_inac_with_cvae_rewards_enhanced(
         final_eval_stats, final_videos = evaluate_policy(
             policy=policy,
             env=eval_env,
-            n_episodes=20,  # More episodes for final eval
+            n_episodes=3,  # 3 episodes for final eval
             record_videos=True,
             video_save_dir=video_dir / "final_eval"
         )
@@ -1049,7 +1062,7 @@ def main():
                         help='Logging interval')
     parser.add_argument('--eval_every', type=int, default=5000,
                         help='Evaluation interval')
-    parser.add_argument('--eval_episodes', type=int, default=10,
+    parser.add_argument('--eval_episodes', type=int, default=3,
                         help='Number of episodes for evaluation')
     parser.add_argument('--lambdaVal', type=str, default='none',
                         help='BC regularization weight')

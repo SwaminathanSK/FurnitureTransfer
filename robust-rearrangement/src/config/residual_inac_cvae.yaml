@@ -1,0 +1,95 @@
+# Configuration for Residual INAC training with CVAE rewards
+# Extends base_residual_rl.yaml with INAC-specific parameters
+
+defaults:
+  - base_residual_rl
+
+# Override some base settings for INAC
+seed: 42
+torch_deterministic: true
+gpu_id: 0
+
+# Environment settings
+env:
+  task: "one_leg"
+  randomness: "low"
+
+# Base policy settings (frozen BC policy)
+base_policy:
+  # Set either wandb_id OR wt_path, not both
+  wandb_id: null  # e.g., "swami2004/your_bc_run_id"
+  wt_path: "/home/swaminathan/git/FurnitureTransfer/robust-rearrangement/checkpoints/bc/one_leg/low/actor_chkpt.pt"   # Using downloaded checkpoint
+  wt_type: "best"
+  actor:
+    name: "diffusion"
+
+# CVAE reward settings
+cvae:
+  model_path: "/home/swaminathan/git/FurnitureTransfer/corrected_progress_cvae_results/corrected_progress_cvae_model.pt"
+  reward_scale: 10.0  # Scale CVAE progress rewards (0-1) to larger range
+
+# INAC algorithm settings
+inac:
+  # Network architecture
+  hidden_units: 256
+
+  # Learning parameters
+  learning_rate: 3e-4
+  tau: 0.1  # Temperature for in-sample softmax
+  batch_size: 256
+  gamma: 0.99
+  polyak: 0.995  # Target network update coefficient
+
+  # Training schedule
+  max_steps: 1000000
+  log_interval: 1000
+  eval_interval: 5000 # changed
+
+  # INAC-specific parameters
+  use_target_network: 1
+  target_network_update_freq: 1
+  evaluation_criteria: "return"
+  lambdaVal: "none"  # BC regularization weight
+
+  # Logging settings
+  tensorboard_logs: false
+
+# Data settings
+data_path: "/home/swaminathan/git/FurnitureTransfer/robust-rearrangement/data/processed/diffik/sim/one_leg/teleop/low/success.zarr"
+max_episodes: null  # Use all episodes, or set to integer to limit
+
+# Wandb logging
+wandb:
+  project: "residual_inac_cvae"
+  entity: "swami2004"
+  mode: "online"  # "online", "offline", or "disabled"
+
+# Evaluation settings
+eval:
+  n_rollouts: 3
+  save_videos: true
+  show_on_screen: true  # Set to true to show first rollout on screen (headless=False)
+  eval_interval: 5000 # changed
+
+# Output settings
+output_dir: "./residual_inac_cvae_results"
+save_model: true
+checkpoint_interval: 10000
+
+# Additional config fields needed for evaluation
+furniture: "one_leg"
+action_type: "pos"
+ctrl_mode: "diffik"
+headless: true
+
+# Control settings
+control:
+  controller: "diffik"
+  control_mode: "pos"
+  act_rot_repr: "rot_6d"
+
+# Rollout settings
+rollout:
+  max_steps: 200
+  count: 10
+  save_failures: true # changed

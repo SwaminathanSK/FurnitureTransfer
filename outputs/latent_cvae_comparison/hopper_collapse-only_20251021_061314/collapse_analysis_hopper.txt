@@ -1,0 +1,18 @@
+============================================================
+LATENT COLLAPSE ANALYSIS
+============================================================
+CVAE Checkpoint: ./outputs/latent_cvae_comparison/cvae_hopper.pt
+Timestamp: 20251021_061314
+Environment: hopper-medium-expert
+Latent Dim: 4 (action_dim=3 + 1)
+
+Effective dimensionality: 2.98/4
+Collapsed dimensions: 0/4
+Extra dims collapsed: 0/1
+Avg correlation: 0.063
+
+Per-dimension statistics:
+  Dim 0: mean=-0.002, std=0.015
+  Dim 1: mean=-0.008, std=0.695
+  Dim 2: mean=0.000, std=0.756
+  Dim 3 [EXTRA]: mean=-0.056, std=0.806
